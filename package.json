@@ -1,5 +1,5 @@
 {
-  "name": "with-tailwind",
+  "name": "a8n",
   "private": true,
   "scripts": {
     "build": "turbo run build",
@@ -20,5 +20,10 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@types/node": "^24.3.1",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.26"
+  }
 }
