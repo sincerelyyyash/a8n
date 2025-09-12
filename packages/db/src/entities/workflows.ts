@@ -10,13 +10,13 @@ export class Workflow {
   id: string
 
   @Index({ unique: true })
-  @Column({ length: 128 })
+  @Column({ type: "varchar", length: 128 })
   name: string;
 
-  @Column({ length: 32, nullable: false })
+  @Column({ type: "varchar", length: 32, nullable: false })
   title: string
 
-  @Column({ length: 12, nullable: false })
+  @Column({ type: "varchar", length: 12, nullable: false })
   enabled: boolean
 
   @OneToMany(() => Node, (node) => node.id)

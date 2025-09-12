@@ -6,17 +6,17 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ length: 20, nullable: false })
+  @Column({ type: "varchar", length: 20, nullable: false })
   firstName: string
 
-  @Column({ length: 20, nullable: true })
+  @Column({ type: "varchar", length: 20, nullable: true })
   lastName: string
 
-  @Column({ length: 254, nullable: false })
+  @Column({ type: "varchar", length: 254, nullable: false })
   @Index({ unique: true })
   email: string
 
-  @Column({ type: String, nullable: false })
+  @Column({ type: "varchar", nullable: false })
   password: string
 
 }

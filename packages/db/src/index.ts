@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { DataSource } from "typeorm";
 import { Node } from "./entities/node";
 import { User } from "./entities/user";
@@ -6,7 +7,7 @@ import { Workflow } from "./entities/workflows";
 import { Connection } from "./entities/connection";
 
 
-export const AppDataSource = new DataSource({
+export const db = new DataSource({
   type: "postgres",
   host: "localhost",
   port: 5432,
@@ -19,3 +20,10 @@ export const AppDataSource = new DataSource({
   subscribers: [],
   migrations: [],
 })
+
+try {
+  await db.initialize();
+  console.log("Database initialized.")
+} catch (error) {
+  console.error("error initializing the database: " + error)
+}

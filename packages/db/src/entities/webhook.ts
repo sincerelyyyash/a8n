@@ -6,19 +6,19 @@ export class Webhook {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   name: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   method: string;
 
-  @Column()
+  @Column({ type: "varchar", })
   path: string;
 
-  @Column()
+  @Column({ type: "varchar", })
   header: string;
 
-  @Column()
+  @Column({ type: "varchar" })
   secret: string
 
 }
