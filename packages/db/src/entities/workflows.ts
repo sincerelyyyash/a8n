@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, Index } from "typeorm";
-
+import { Node } from "./node"
+import { Connection } from "./connection";
 
 @Entity()
 export class Workflow {
