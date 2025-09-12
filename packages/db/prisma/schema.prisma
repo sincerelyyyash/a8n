@@ -1,0 +1,74 @@
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  email       String        @unique
+  firstName   String
+  lastName    String
+  password    String
+  workflows   Workflow[]
+  credentials Credentials[]
+}
+
+model Workflow {
+  id          Int          @id @default(autoincrement())
+  name        String
+  title       String
+  enabled     Boolean       @default(true)
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id])
+  nodes       Node[]
+  connections Connection[]
+  webhooks    Webhook[]
+}
+
+model Webhook {
+  id         Int      @id @default(autoincrement())
+  name       String
+  method     String
+  path       String
+  header     String
+  secret     String
+  workflowId Int
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+}
+
+model Node {
+  id         Int          @id @default(autoincrement())
+  positionX  Float
+  positionY  Float
+  workflowId Int
+  workflow   Workflow     @relation(fields: [workflowId], references: [id])
+  connectionsFrom Connection[] @relation("FromConnections")
+  connectionsTo   Connection[] @relation("ToConnections")
+}
+
+model Connection {
+  id         Int  @id @default(autoincrement())
+  fromId     Int
+  toId       Int
+  workflowId Int
+
+  workflow Workflow @relation(fields: [workflowId], references: [id])
+  from     Node     @relation("FromConnections", fields: [fromId], references: [id])
+  to       Node     @relation("ToConnections", fields: [toId], references: [id])
+}
+
+model Credentials {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id])
+  title    String
+  platform String
+  data     Json
+}
+
