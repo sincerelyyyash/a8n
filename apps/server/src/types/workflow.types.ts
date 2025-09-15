@@ -11,7 +11,7 @@ export const createWorkflowSchema = z.object({
     positionY: z.string(),
   })),
 
-  connection: z.array(z.object({
+  connections: z.array(z.object({
     fromId: z.string(),
     toId: z.string(),
   }))
@@ -20,6 +20,7 @@ export const createWorkflowSchema = z.object({
 
 
 export const updateWorkflowSchema = z.object({
+  id: z.string(),
   name: z.string().optional(),
   title: z.string().optional(),
   enabled: z.boolean().optional(),
