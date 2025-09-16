@@ -1,14 +1,16 @@
 "use client"
-import { useState, useCallback } from 'react';
-import { ReactFlow, applyNodeChanges, applyEdgeChanges, addEdge, useReactFlow, Edge } from '@xyflow/react';
+import { useState, useCallback, useMemo } from 'react';
+import { ReactFlow, applyNodeChanges, applyEdgeChanges, addEdge, useReactFlow, Edge, type NodeTypes, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { CreateFirstNode } from './nodes/FirstNode';
+import { MediaTitleNode } from './nodes/MediaTitleNode';
 import ActionToolbar from './ActionToolbar';
 import { Minus, Plus, Maximize2 } from 'lucide-react';
 import { useSidebar } from "@/components/ui/sidebar";
 
-const nodeTypes = {
+const nodeTypes: NodeTypes = {
   firstNode: CreateFirstNode,
+  mediaTitle: MediaTitleNode as unknown as React.ComponentType<NodeProps>,
 };
 
 const initialNodes = [
@@ -85,12 +87,30 @@ export default function ReactFlowComponent() {
     );
   };
 
+  // Only show the first node when there are no other nodes
+  const computedNodes = useMemo(() => {
+    const hasNonFirstNodes = nodes.some((n) => n.id !== 'first-node');
+    if (hasNonFirstNodes) {
+      return nodes.filter((n) => n.id !== 'first-node');
+    }
+    // Ensure the first node is available when empty
+    return nodes.length ? nodes : initialNodes;
+  }, [nodes]);
+
   return (
     <div className="w-full h-[calc(100vh-4.5rem)] bg-sidebar px-2 pb-0 pt-0">
       <div className="w-full h-full bg-sidebar/90 rounded-lg border border-sidebar-border p-2">
         <ReactFlow
           className="bg-sidebar/95 rounded-lg"
-        nodes={nodes.map((n) => n.id === 'first-node' ? { ...n, data: { ...n.data, onClick: () => setToolbarOpen(true) } } : n)}
+        nodes={computedNodes.map((n) => {
+          if (n.id === 'first-node') {
+            return { ...n, data: { ...n.data, onClick: () => setToolbarOpen(true) } };
+          }
+          if (n.type === 'mediaTitle') {
+            return { ...n, data: { ...n.data, onClick: () => setToolbarOpen(true) } };
+          }
+          return n;
+        })}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}

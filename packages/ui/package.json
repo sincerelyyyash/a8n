@@ -8,8 +8,11 @@
     "dist"
   ],
   "exports": {
-    "./styles.css": "./dist/index.css",
-    "./*": "./dist/*.js"
+    "./styles.css": "./src/styles.css",
+    "./*": "./dist/*.js",
+    "./card": "./src/card.tsx",
+    "./gradient": "./src/gradient.tsx",
+    "./turborepo-logo": "./src/turborepo-logo.tsx"
   },
   "license": "MIT",
   "scripts": {
@@ -32,5 +35,10 @@
     "eslint": "^9.33.0",
     "tailwindcss": "^4.1.5",
     "typescript": "5.9.2"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.1"
   }
 }
