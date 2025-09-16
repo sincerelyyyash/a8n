@@ -9,6 +9,7 @@ export const createWorkflowSchema = z.object({
     id: z.string(),
     positionX: z.string(),
     positionY: z.string(),
+    data: z.object(),
   })),
 
   connections: z.array(z.object({
@@ -29,6 +30,7 @@ export const updateWorkflowSchema = z.object({
     id: z.string(),
     positionX: z.string(),
     positionY: z.string(),
+    data: z.object(),
   })).optional(),
 
   connection: z.array(z.object({

@@ -32,6 +32,7 @@ export const createWorkflow = async (req: Request, res: Response) => {
           data: {
             positionX: parseFloat(node.positionX),
             positionY: parseFloat(node.positionY),
+            data: node.data,
             workflowId: workflow.id,
           },
         });
@@ -113,6 +114,7 @@ export const updateWorkflow = async (req: Request, res: Response) => {
               positionX: parseFloat(node.positionX),
               positionY: parseFloat(node.positionY),
               workflowId: workflow.id,
+              data: node.data,
             },
           });
         }
@@ -205,6 +207,30 @@ export const getWorkflow = async (req: Request, res: Response) => {
         message: "Workflow not found or you do not have access."
       })
     }
+
+    const nodes = await prisma.node.findMany({
+      where: {
+        workflowId: workflow.id
+      }
+    })
+
+    const connections = await prisma.node.findMany({
+      where: {
+        workflowId: workflow.id
+      }
+    })
+
+    const workflowData = {
+      data: workflow,
+      nodes: nodes,
+      connections: connections,
+    }
+
+    return res.status(200).json({
+      message: "Workflow data fetched successfully",
+      data: workflowData,
+    })
+
   } catch (err) {
     return res.status(500).json({
       message: "Internal server error",

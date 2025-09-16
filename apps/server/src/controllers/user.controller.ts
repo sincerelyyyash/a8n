@@ -116,3 +116,34 @@ export const loginUser = async (req: Request, res: Response) => {
     })
   }
 }
+
+export const getUser = async (req: Request, res: Response) => {
+  const userId = (req as any).user.id;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: parseInt(userId)
+      }
+    })
+
+    if (!user) {
+      return res.status(403).json({
+        message: "user not found"
+      })
+    }
+
+    return res.status(200).json({
+      message: "User fetched successfully",
+      data: user
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      message: "Internal server error",
+      data: (err as any).message,
+    })
+
+  }
+}
