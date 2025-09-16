@@ -33,7 +33,7 @@ const secondaryItems = [
 export function AppSidebar() {
   return (
     <Sidebar className="bg-sidebar border border-sidebar-border rounded-lg m-2 h-[calc(100vh-1rem)] overflow-hidden">
-      <SidebarContent className="px-2 pb-2 bg-sidebar">
+      <SidebarContent className="px-2 pb-2 bg-sidebar flex h-full flex-col">
         {/* Header */}
         <SidebarHeader className="flex items-center justify-between p-3">
           <div className="text-foreground font-medium tracking-wide">a8n</div>
@@ -77,7 +77,7 @@ export function AppSidebar() {
         <SidebarGroup className="px-1">
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryItems.map((item) => (
+              {/* {secondaryItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild size="lg">
                     <a href={item.url}>
@@ -86,14 +86,14 @@ export function AppSidebar() {
                     </a>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-              ))}
+              ))} */}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarSeparator />
         {/* Footer user pill */}
-        <SidebarFooter className="px-1">
+        <SidebarFooter className="mt-auto px-1">
           <a href="#" className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-sm text-foreground/90 hover:text-foreground hover:border-foreground/60 transition-colors">
             <span className="inline-flex items-center gap-2">
               <span className="size-6 rounded-full bg-gradient-to-br from-pink-500 to-orange-400 grid place-items-center text-[10px] text-white">YT</span>

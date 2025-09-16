@@ -50,6 +50,7 @@ model Node {
   workflow   Workflow     @relation(fields: [workflowId], references: [id])
   connectionsFrom Connection[] @relation("FromConnections")
   connectionsTo   Connection[] @relation("ToConnections")
+  data            Json
 }
 
 model Connection {
