@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET ?? "secret_token"
 export const verifyJWT = (req: Request, res: Response, next: NextFunction) => {
   try {
     const token =
-      req.cookies?.accessToken ||
+      req.cookies?.token ||
       req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
@@ -16,9 +16,12 @@ export const verifyJWT = (req: Request, res: Response, next: NextFunction) => {
 
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
-    (req as any).user = {
-      id: decoded.id,
-    };
+    const userId = (decoded as JwtPayload)?.userId ?? (decoded as any)?.id;
+    if (!userId) {
+      return res.status(403).json({ message: "Invalid token payload" });
+    }
+
+    (req as any).user = { id: userId };
 
     next();
   } catch {

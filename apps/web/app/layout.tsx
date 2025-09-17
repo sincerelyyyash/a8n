@@ -2,6 +2,8 @@ import "@repo/ui/styles.css";
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/components/providers/auth-provider";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -17,7 +19,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geist.className} bg-sidebar text-sidebar-foreground`}>{children}</body>
+      <body className={`${geist.className} bg-sidebar text-sidebar-foreground`}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
+        <Toaster richColors position="top-right" />
+      </body>
     </html>
   );
 }

@@ -5,17 +5,36 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { apiClient } from "@/lib/axios";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const SigninPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const router = useRouter();
+  const { refresh } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    const formData = new FormData(e.currentTarget);
-    const payload = Object.fromEntries(formData.entries());
-    console.log("signin submit", payload);
-    setTimeout(() => setIsSubmitting(false), 600);
+    try {
+      setIsSubmitting(true);
+      const formData = new FormData(e.currentTarget);
+      const payload = Object.fromEntries(formData.entries()) as { email: string; password: string } as any;
+      const res = await apiClient.post("/api/v1/user/signin", payload, { withCredentials: true });
+      if (res.status === 200) {
+        toast.success("Signed in successfully");
+        await refresh();
+        router.replace("/home");
+      } else {
+        toast.error("Failed to sign in");
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? "Failed to sign in";
+      toast.error(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
