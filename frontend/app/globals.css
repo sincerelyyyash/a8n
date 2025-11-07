@@ -130,3 +130,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Hide React Flow attribution/watermark */
+.react-flow__attribution,
+[data-react-flow-attribution],
+.react-flow__attribution a {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Alternative: Style the attribution to match background if you want to keep it */
+/* .react-flow__attribution {
+  background: transparent !important;
+  color: var(--sidebar-foreground) !important;
+  opacity: 0.5 !important;
+} */
