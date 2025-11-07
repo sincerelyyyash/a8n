@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useState, useEffect } from "react";
 import AuthCard from "@/components/auth/AuthCard";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -9,11 +10,30 @@ import { apiClient } from "@/lib/axios";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
+import { getErrorMessage } from "@/lib/error-messages";
+import { motion, AnimatePresence } from "motion/react";
 
 const SignupPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
   const router = useRouter();
   const { refresh } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 50) {
+        setHasScrolled(true);
+      } else {
+        setHasScrolled(false);
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const shouldShowAutomation = isExpanded || hasScrolled;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,8 +50,7 @@ const SignupPage: React.FC = () => {
         toast.error("Failed to create account");
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message ?? "Failed to create account";
-      toast.error(msg);
+      toast.error(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -40,7 +59,40 @@ const SignupPage: React.FC = () => {
   return (
     <div className="mx-auto grid min-h-[100dvh] max-w-6xl grid-cols-1 items-center gap-8 px-4 py-8 md:grid-cols-2">
       <div className="order-2 md:order-1">
-        <h2 className="text-2xl font-semibold">Welcome to a8n</h2>
+        <h2 className="text-2xl font-semibold">
+          Welcome to{" "}
+          <span
+            className="relative inline-block cursor-default"
+            onMouseEnter={() => setIsExpanded(true)}
+            onMouseLeave={() => setIsExpanded(false)}
+          >
+            <AnimatePresence mode="wait">
+              {shouldShowAutomation ? (
+                <motion.span
+                  key="automation"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="inline-block"
+                >
+                  automation
+                </motion.span>
+              ) : (
+                <motion.span
+                  key="a8n"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="inline-block"
+                >
+                  a8n
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </span>
+        </h2>
         <p className="mt-2 max-w-prose text-muted-foreground">
           Automate your workflows with a clean, minimal interface. Create your account to get started.
         </p>
