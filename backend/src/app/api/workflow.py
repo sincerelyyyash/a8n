@@ -127,72 +127,95 @@ async def update_workflow(
         # Handle nodes and connections update if provided
         client_to_db_id: dict[int, int] = {}
         
-        if data.nodes is not None:
-            print(f"DEBUG: Processing {len(data.nodes)} nodes")
+        # If nodes or connections are being updated, we need to handle them together
+        if data.nodes is not None or data.connections is not None:
             try:
-                # Delete existing nodes for this workflow
-                existing_nodes_result = await db.execute(
-                    select(Node).where(Node.workflow_id == data.id)
-                )
-                existing_nodes = existing_nodes_result.scalars().all()
-                print(f"DEBUG: Deleting {len(existing_nodes)} existing nodes")
-                for node in existing_nodes:
-                    await db.delete(node)
-                
-                # Add new nodes
-                for i, node in enumerate(data.nodes):
-                    print(f"DEBUG: Adding node {i}: {node}")
-                    print(f"DEBUG: Node data type: {type(node.data)}")
-                    print(f"DEBUG: Node data content: {node.data}")
-                    
-                    # Ensure data is a dict
-                    node_data = node.data if isinstance(node.data, dict) else {}
-                    
-                    # Create Node with explicit id=None for auto-increment
-                    n = Node(
-                        id=None,
-                        positionX=float(node.positionX),
-                        positionY=float(node.positionY),
-                        data=node_data,
-                        workflow_id=int(data.id),
+                # IMPORTANT: Delete connections FIRST to avoid foreign key constraint issues
+                if data.connections is not None or data.nodes is not None:
+                    existing_connections = await db.execute(
+                        select(Connection).where(Connection.workflow_id == data.id)
                     )
-                    db.add(n)
-                    await db.flush()
-                    temp_id = node_data.get("temp_id") if isinstance(node_data, dict) else None
-                    if temp_id is not None:
-                        client_to_db_id[int(temp_id)] = n.id
-                        print(f"DEBUG: Mapped temp_id {temp_id} to node_id {n.id}")
-            except Exception as e:
-                print(f"DEBUG: Error processing nodes: {e}")
-                raise
-
-        if data.connections is not None:
-            print(f"DEBUG: Processing {len(data.connections)} connections")
-            try:
-                # Delete existing connections for this workflow
-                existing_connections = await db.execute(
-                    select(Connection).where(Connection.workflow_id == data.id)
-                )
-                existing_conns = existing_connections.scalars().all()
-                print(f"DEBUG: Deleting {len(existing_conns)} existing connections")
-                for conn in existing_conns:
-                    await db.delete(conn)
+                    existing_conns = existing_connections.scalars().all()
+                    print(f"DEBUG: Deleting {len(existing_conns)} existing connections")
+                    for conn in existing_conns:
+                        await db.delete(conn)
+                    await db.flush()  # Flush to ensure connections are deleted before nodes
                 
-                # Add new connections
-                for i, conn in enumerate(data.connections):
-                    print(f"DEBUG: Adding connection {i}: {conn}")
-                    from_id = client_to_db_id.get(conn.from_node_id, conn.from_node_id)
-                    to_id = client_to_db_id.get(conn.to_node_id, conn.to_node_id)
-                    print(f"DEBUG: Connection from {from_id} to {to_id}")
-                    c = Connection(
-                        id=None,
-                        from_node_id=int(from_id),
-                        to_node_id=int(to_id),
-                        workflow_id=int(data.id),
+                if data.nodes is not None:
+                    print(f"DEBUG: Processing {len(data.nodes)} nodes")
+                    # Delete existing nodes for this workflow
+                    existing_nodes_result = await db.execute(
+                        select(Node).where(Node.workflow_id == data.id)
                     )
-                    db.add(c)
+                    existing_nodes = existing_nodes_result.scalars().all()
+                    print(f"DEBUG: Deleting {len(existing_nodes)} existing nodes")
+                    for node in existing_nodes:
+                        await db.delete(node)
+                    await db.flush()  # Flush to ensure nodes are deleted
+                    
+                    # Add new nodes and build the mapping
+                    for i, node in enumerate(data.nodes):
+                        print(f"DEBUG: Adding node {i}: {node}")
+                        print(f"DEBUG: Node data type: {type(node.data)}")
+                        print(f"DEBUG: Node data content: {node.data}")
+                        
+                        # Ensure data is a dict
+                        node_data = node.data if isinstance(node.data, dict) else {}
+                        
+                        # Create Node with explicit id=None for auto-increment
+                        n = Node(
+                            id=None,
+                            positionX=float(node.positionX),
+                            positionY=float(node.positionY),
+                            data=node_data,
+                            workflow_id=int(data.id),
+                        )
+                        db.add(n)
+                        await db.flush()  # Flush to get the new node ID
+                        
+                        # Map temp_id to the new node ID
+                        temp_id = node_data.get("temp_id") if isinstance(node_data, dict) else None
+                        if temp_id is not None:
+                            client_to_db_id[int(temp_id)] = n.id
+                            print(f"DEBUG: Mapped temp_id {temp_id} to node_id {n.id}")
+                
+                if data.connections is not None:
+                    print(f"DEBUG: Processing {len(data.connections)} connections")
+                    print(f"DEBUG: client_to_db_id mapping: {client_to_db_id}")
+                    
+                    # Add new connections using the mapping
+                    for i, conn in enumerate(data.connections):
+                        print(f"DEBUG: Adding connection {i}: from_node_id={conn.from_node_id}, to_node_id={conn.to_node_id}")
+                        
+                        # Look up the actual node IDs from the mapping
+                        from_id = client_to_db_id.get(conn.from_node_id)
+                        to_id = client_to_db_id.get(conn.to_node_id)
+                        
+                        # If not found in mapping, try using the value directly (in case it's already a real ID)
+                        if from_id is None:
+                            from_id = conn.from_node_id
+                        if to_id is None:
+                            to_id = conn.to_node_id
+                        
+                        # Validate that we have valid node IDs
+                        if from_id is None or to_id is None:
+                            raise ValueError(
+                                f"Invalid connection: from_node_id={conn.from_node_id} (mapped to {from_id}), "
+                                f"to_node_id={conn.to_node_id} (mapped to {to_id}). "
+                                f"Available mappings: {client_to_db_id}"
+                            )
+                        
+                        print(f"DEBUG: Connection from {from_id} to {to_id}")
+                        c = Connection(
+                            id=None,
+                            from_node_id=int(from_id),
+                            to_node_id=int(to_id),
+                            workflow_id=int(data.id),
+                        )
+                        db.add(c)
             except Exception as e:
-                print(f"DEBUG: Error processing connections: {e}")
+                print(f"DEBUG: Error processing nodes/connections: {e}")
+                await db.rollback()
                 raise
 
         await db.commit()
