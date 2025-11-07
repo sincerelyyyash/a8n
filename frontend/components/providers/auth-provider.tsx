@@ -48,8 +48,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = React.useCallback(async () => {
     try {
-      // Clear cookie by calling a server logout when available; until then, best-effort client clear
-      // If server lacks logout, we can expire cookie by setting past date via fetch to server domain.
+      // Clear cookies by setting them to expire in the past
+      // This is done by making a request to clear the cookies
+      document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "user_id=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     } finally {
       setUser(null);
       setToken(null);
