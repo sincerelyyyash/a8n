@@ -18,7 +18,7 @@ dependencies = [
 packages = [{ include = "app", from = "src" }]
 
 [tool.poetry.scripts]
-executor = "app.main:main"
+executor = "app.main:cli"
 
 
 [build-system]

@@ -1,5 +1,5 @@
 import asyncio
-from services.redis_service import process_execution_queue
+from app.services.redis_service import process_execution_queue
 
 
 async def main():
