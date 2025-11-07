@@ -11,7 +11,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <RequireAuth>
         <SidebarProvider>
           <AppSidebar />
-          <SidebarInset>
+          <SidebarInset className="ml-2">
             <main className="flex flex-col w-full h-full bg-sidebar">
               <WorkflowPageAppbar />
               {children}

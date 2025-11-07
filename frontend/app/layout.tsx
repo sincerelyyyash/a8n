@@ -1,10 +1,16 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
+import { DM_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/components/providers/auth-provider";
 
 const geist = Geist({ subsets: ["latin"] });
+const dmMono = DM_Mono({ 
+  subsets: ["latin"], 
+  weight: ["300", "400", "500"],
+  variable: "--font-dm-mono" 
+});
 
 export const metadata: Metadata = {
   title: "a8n",
@@ -18,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${geist.className} bg-sidebar text-sidebar-foreground`}>
+      <body className={`${geist.className} ${dmMono.variable} bg-sidebar text-sidebar-foreground`}>
         <AuthProvider>
           {children}
         </AuthProvider>
