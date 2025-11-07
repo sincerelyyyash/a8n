@@ -27,7 +27,7 @@ export function CreateFirstNode({ data }: NodeProps) {
           onKeyDown={handleKeyDown}
           aria-label="Add first step"
           tabIndex={0}
-          className="size-5 rounded-full text-foreground/80 hover:text-foreground border border-border/60 hover:border-foreground/50 bg-transparent transition-colors focus:outline-none"
+          className="size-5 rounded-full text-foreground/80 hover:text-foreground border border-border/60 hover:border-foreground/50 bg-transparent transition-colors focus:outline-none flex items-center justify-center"
         >
           {"+"}
         </button>

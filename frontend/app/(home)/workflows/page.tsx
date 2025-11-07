@@ -10,6 +10,7 @@ import { apiClient, type ApiResponse } from "@/lib/axios";
 import { toast } from "sonner";
 import { useAuth } from "@/components/providers/auth-provider";
 import { Switch } from "@/components/ui/switch";
+import { getErrorMessage } from "@/lib/error-messages";
 
 type Workflow = {
   id: number;
@@ -42,10 +43,8 @@ export default function WorkflowHome() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const [query, setQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"workflows" | "credentials" | "executions">("workflows");
   const [credentialDialogOpen, setCredentialDialogOpen] = useState<boolean>(false);
-  const [credentialQuery, setCredentialQuery] = useState<string>("");
   const [executions] = useState<Execution[]>([]);
   const [creating, setCreating] = useState<boolean>(false);
   const [createOpen, setCreateOpen] = useState<boolean>(false);
@@ -66,8 +65,15 @@ export default function WorkflowHome() {
   const [credentialStep, setCredentialStep] = useState<"select" | "form">("select");
   const [selectedPlatform, setSelectedPlatform] = useState<string>("");
   const [credTitle, setCredTitle] = useState<string>("");
-  const [credData, setCredData] = useState<string>("{}");
   const [credSaving, setCredSaving] = useState<boolean>(false);
+  
+
+  const [gmailEmail, setGmailEmail] = useState<string>("");
+  const [gmailAppPassword, setGmailAppPassword] = useState<string>("");
+  const [llmApiKey, setLlmApiKey] = useState<string>("");
+  const [llmModel, setLlmModel] = useState<string>("");
+  const [telegramBotToken, setTelegramBotToken] = useState<string>("");
+  const [telegramChatId, setTelegramChatId] = useState<string>("");
 
   // credential edit flow
   const [editOpen, setEditOpen] = useState<boolean>(false);
@@ -75,8 +81,15 @@ export default function WorkflowHome() {
   const [editId, setEditId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState<string>("");
   const [editPlatform, setEditPlatform] = useState<string>("");
-  const [editData, setEditData] = useState<string>("{}");
   const [editSaving, setEditSaving] = useState<boolean>(false);
+  
+
+  const [editGmailEmail, setEditGmailEmail] = useState<string>("");
+  const [editGmailAppPassword, setEditGmailAppPassword] = useState<string>("");
+  const [editLlmApiKey, setEditLlmApiKey] = useState<string>("");
+  const [editLlmModel, setEditLlmModel] = useState<string>("");
+  const [editTelegramBotToken, setEditTelegramBotToken] = useState<string>("");
+  const [editTelegramChatId, setEditTelegramChatId] = useState<string>("");
 
   // execution flow
   const [runWorkflowId, setRunWorkflowId] = useState<number | "">("");
@@ -119,16 +132,12 @@ export default function WorkflowHome() {
       const want = filterEnabled === "active";
       arr = arr.filter((w) => Boolean(w.enabled) === want);
     }
-    if (query) {
-    const q = query.toLowerCase();
-      arr = arr.filter((w) => `${w.title} ${w.name}`.toLowerCase().includes(q));
-    }
     const sorted = [...arr].sort((a, b) => {
       if (sortBy === "enabled") return Number(b.enabled) - Number(a.enabled);
       return (a.title || a.name).localeCompare(b.title || b.name);
     });
     return sorted;
-  }, [query, workflows, sortBy, filterEnabled]);
+  }, [workflows, sortBy, filterEnabled]);
 
   const paginated = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -140,10 +149,8 @@ export default function WorkflowHome() {
   const providers = useMemo(() => ["Telegram", "Gmail", "Google Gemini"], []);
 
   const providerResults = useMemo(() => {
-    const q = credentialQuery.trim().toLowerCase();
-    if (!q) return providers;
-    return providers.filter((p) => p.toLowerCase().includes(q));
-  }, [credentialQuery, providers]);
+    return providers;
+  }, [providers]);
 
   const handleRefreshCredentials = async () => {
     if (!user?.id) {
@@ -157,8 +164,7 @@ export default function WorkflowHome() {
       setCredentials(arr.map((c: any) => ({ id: c.id, title: c.title, platform: c.platform })));
       toast.success("Credentials loaded");
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || "Failed to load credentials";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
       setCredentials([]);
     } finally {
       setCredentialsLoading(false);
@@ -169,7 +175,12 @@ export default function WorkflowHome() {
     setCredentialStep("select");
     setSelectedPlatform("");
     setCredTitle("");
-    setCredData("{}");
+    setGmailEmail("");
+    setGmailAppPassword("");
+    setLlmApiKey("");
+    setLlmModel("");
+    setTelegramBotToken("");
+    setTelegramChatId("");
   };
 
   const handleStartCreateCredential = () => {
@@ -178,7 +189,17 @@ export default function WorkflowHome() {
   };
 
   const handleChoosePlatform = (platform: string) => {
-    setSelectedPlatform(platform);
+    // Normalize platform name to lowercase
+    const normalizedPlatform = platform.toLowerCase().replace(/\s+/g, "");
+    let finalPlatform = "";
+    if (normalizedPlatform.includes("gmail") || normalizedPlatform === "gmail") {
+      finalPlatform = "gmail";
+    } else if (normalizedPlatform.includes("telegram") || normalizedPlatform === "telegram") {
+      finalPlatform = "telegram";
+    } else if (normalizedPlatform.includes("gemini") || normalizedPlatform.includes("llm") || normalizedPlatform === "llm") {
+      finalPlatform = "llm";
+    }
+    setSelectedPlatform(finalPlatform);
     setCredentialStep("form");
   };
 
@@ -192,28 +213,54 @@ export default function WorkflowHome() {
       toast.error("Title and platform are required");
       return;
     }
-    let parsed: any;
-    try {
-      parsed = credData ? JSON.parse(credData) : {};
-    } catch (e) {
-      toast.error("Data must be valid JSON");
+    
+    // Build platform-specific fields object
+    let fields: Record<string, string> = {};
+    if (selectedPlatform === "gmail") {
+      if (!gmailEmail.trim() || !gmailAppPassword.trim()) {
+        toast.error("Email and app password are required for Gmail");
+        return;
+      }
+      fields = {
+        email: gmailEmail.trim(),
+        app_password: gmailAppPassword.trim(),
+      };
+    } else if (selectedPlatform === "llm") {
+      if (!llmApiKey.trim()) {
+        toast.error("API key is required for LLM");
+        return;
+      }
+      fields = {
+        api_key: llmApiKey.trim(),
+        ...(llmModel.trim() ? { model: llmModel.trim() } : {}),
+      };
+    } else if (selectedPlatform === "telegram") {
+      if (!telegramBotToken.trim()) {
+        toast.error("Bot token is required for Telegram");
+        return;
+      }
+      fields = {
+        bot_token: telegramBotToken.trim(),
+        ...(telegramChatId.trim() ? { chat_id: telegramChatId.trim() } : {}),
+      };
+    } else {
+      toast.error("Invalid platform selected");
       return;
     }
+    
     try {
       setCredSaving(true);
-      await apiClient.post("/api/v1/credential/create", {
-        
+      await apiClient.post("/api/v1/credential/create-platform", {
         title,
         platform: selectedPlatform,
-        data: parsed,
+        fields,
       });
       toast.success("Credential created");
       setCredentialCreateOpen(false);
       resetCredentialDialog();
       await handleRefreshCredentials();
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to create credential";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setCredSaving(false);
     }
@@ -245,8 +292,7 @@ export default function WorkflowHome() {
       toast.success("Execution queued");
       void handlePollStatus(execId);
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to start execution";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setStartingExec(false);
     }
@@ -279,8 +325,7 @@ export default function WorkflowHome() {
       toast.success("Node execution queued");
       void handlePollStatus(execId);
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to start node execution";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setStartingNodeExec(false);
     }
@@ -302,8 +347,7 @@ export default function WorkflowHome() {
         toast.error("Execution failed");
       }
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to fetch status";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setPolling(false);
     }
@@ -321,8 +365,7 @@ export default function WorkflowHome() {
       toast.success("Workflow deleted");
       setWorkflows((prev) => prev.filter((w) => w.id !== workflowId));
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to delete workflow";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     }
   };
 
@@ -338,11 +381,20 @@ export default function WorkflowHome() {
       const res = await apiClient.get("/api/v1/credential/", { params: { credential_id: credId } });
       const data = res.data?.data || res.data;
       setEditTitle(data?.title || "");
-      setEditPlatform(data?.platform || "");
-      setEditData(JSON.stringify(data?.data ?? {}, null, 2));
+      const platform = (data?.platform || "").toLowerCase();
+      setEditPlatform(platform);
+      
+      // Note: We don't get the actual credential data back for security
+      // User will need to re-enter the values (or we could add a masked endpoint)
+      // For now, reset all fields
+      setEditGmailEmail("");
+      setEditGmailAppPassword("");
+      setEditLlmApiKey("");
+      setEditLlmModel("");
+      setEditTelegramBotToken("");
+      setEditTelegramChatId("");
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to load credential";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
       setEditOpen(false);
     } finally {
       setEditLoading(false);
@@ -351,28 +403,53 @@ export default function WorkflowHome() {
 
   const handleSaveCredentialEdit = async () => {
     if (!user?.id || !editId) return;
-    let parsed: any;
-    try {
-      parsed = editData ? JSON.parse(editData) : {};
-    } catch {
-      toast.error("Data must be valid JSON");
+    
+    // Build platform-specific fields object
+    let fields: Record<string, string> = {};
+    if (editPlatform === "gmail") {
+      if (!editGmailEmail.trim() || !editGmailAppPassword.trim()) {
+        toast.error("Email and app password are required for Gmail");
+        return;
+      }
+      fields = {
+        email: editGmailEmail.trim(),
+        app_password: editGmailAppPassword.trim(),
+      };
+    } else if (editPlatform === "llm") {
+      if (!editLlmApiKey.trim()) {
+        toast.error("API key is required for LLM");
+        return;
+      }
+      fields = {
+        api_key: editLlmApiKey.trim(),
+        ...(editLlmModel.trim() ? { model: editLlmModel.trim() } : {}),
+      };
+    } else if (editPlatform === "telegram") {
+      if (!editTelegramBotToken.trim()) {
+        toast.error("Bot token is required for Telegram");
+        return;
+      }
+      fields = {
+        bot_token: editTelegramBotToken.trim(),
+        ...(editTelegramChatId.trim() ? { chat_id: editTelegramChatId.trim() } : {}),
+      };
+    } else {
+      toast.error("Invalid platform");
       return;
     }
+    
     try {
       setEditSaving(true);
-      await apiClient.post("/api/v1/credential/update", {
+      await apiClient.post("/api/v1/credential/update-platform", {
         id: editId,
-        
-        title: editTitle,
-        platform: editPlatform,
-        data: parsed,
+        title: editTitle.trim() || undefined,
+        fields,
       });
       toast.success("Credential updated");
       setEditOpen(false);
       await handleRefreshCredentials();
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to update credential";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setEditSaving(false);
     }
@@ -385,8 +462,7 @@ export default function WorkflowHome() {
       setWorkflows((prev) => prev.map((w) => w.id === wf.id ? { ...w, enabled: !w.enabled } : w));
       toast.success(`Workflow ${!wf.enabled ? "enabled" : "disabled"}`);
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to update workflow";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     }
   };
 
@@ -418,8 +494,7 @@ export default function WorkflowHome() {
       toast.success("Workflow updated");
       setWfEditOpen(false);
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to update workflow";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setWfEditSaving(false);
     }
@@ -439,15 +514,13 @@ export default function WorkflowHome() {
     if (!user?.id) { toast.error("Sign in to load executions"); return; }
     try {
       setExecsLoading(true);
-      const params: any = { user_id: user.id, limit: 20 };
-      if (runWorkflowId && typeof runWorkflowId === "number") params.workflow_id = runWorkflowId;
+      const params: any = { user_id: user.id, limit: 50 };
       const res = await apiClient.get("/api/v1/execution/list", { params });
       const arr = Array.isArray(res.data?.data) ? res.data.data : [];
       setExecs(arr);
       toast.success("Executions loaded");
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || "Failed to load executions";
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
       setExecs([]);
     } finally {
       setExecsLoading(false);
@@ -525,8 +598,7 @@ export default function WorkflowHome() {
                           setWorkflows(Array.isArray(data) ? data : []);
                         } catch {}
                       } catch (e: any) {
-                        const msg = e?.response?.data?.detail || e?.message || "Failed to create workflow";
-                        toast.error(String(msg));
+                        toast.error(getErrorMessage(e));
                       } finally {
                         setCreating(false);
                       }
@@ -541,13 +613,14 @@ export default function WorkflowHome() {
         </Dialog.Root>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Stats section - commented out for now */}
+      {/* <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Prod. executions" value="0" helper="Last 7 days" />
         <StatCard label="Failed prod. executions" value="0" helper="Last 7 days" />
         <StatCard label="Failure rate" value="0%" helper="Last 7 days" />
         <StatCard label="Time saved" value="--" helper="Last 7 days" />
         <StatCard label="Run time (avg.)" value="0s" helper="Last 7 days" />
-      </div>
+      </div> */}
 
       <div className="flex items-center gap-6">
         <button
@@ -579,18 +652,10 @@ export default function WorkflowHome() {
       {activeTab === "workflows" ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full max-w-sm">
-              <Input
-                aria-label="Search"
-                placeholder="Search"
-                value={query}
-                onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-              />
-            </div>
             <div className="flex items-center gap-2">
               <select
                 aria-label="Sort by"
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-1 focus:ring-ring"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
               >
@@ -599,7 +664,7 @@ export default function WorkflowHome() {
               </select>
               <select
                 aria-label="Filter by status"
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-1 focus:ring-ring"
                 value={filterEnabled}
                 onChange={(e) => { setFilterEnabled(e.target.value as any); setPage(1); }}
               >
@@ -621,8 +686,6 @@ export default function WorkflowHome() {
                   <Button aria-label="Create Workflow" variant="default" onClick={() => setCreateOpen(true)}>Add workflow</Button>
                 </div>
               </div>
-            ) : filtered.length === 0 && workflows.length > 0 ? (
-              <div className="text-sm text-muted-foreground">No workflows match your search.</div>
             ) : (
               paginated.map((wf) => (
                 <div key={wf.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 text-card-foreground shadow-sm" role="listitem">
@@ -657,7 +720,7 @@ export default function WorkflowHome() {
               </span>
               <select
                 aria-label="Page size"
-                className="rounded-md border border-border bg-background px-2 py-1"
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-1 focus:ring-ring"
                 value={pageSize}
                 onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
               >
@@ -731,27 +794,19 @@ export default function WorkflowHome() {
                         <div>
                           <div className="text-sm text-muted-foreground">Select an app or service to connect to</div>
                           <div className="mt-3">
-                            <div className="relative">
-                              <Input
-                                aria-label="Search for app"
-                                placeholder="Search for app..."
-                                value={credentialQuery}
-                                onChange={(e) => setCredentialQuery(e.target.value)}
-                              />
-                              <div className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-card text-card-foreground shadow-sm">
-                                {providerResults.map((p) => (
-                                  <button
-                                    key={p}
-                                    className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                                    onClick={() => handleChoosePlatform(p)}
-                                  >
-                                    {p}
-                                  </button>
-                                ))}
-                                {providerResults.length === 0 ? (
-                                  <div className="px-3 py-4 text-sm text-muted-foreground">No results</div>
-                                ) : null}
-                              </div>
+                            <div className="max-h-64 overflow-auto rounded-md border border-border bg-card text-card-foreground shadow-sm">
+                              {providerResults.map((p) => (
+                                <button
+                                  key={p}
+                                  className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                  onClick={() => handleChoosePlatform(p)}
+                                >
+                                  {p}
+                                </button>
+                              ))}
+                              {providerResults.length === 0 ? (
+                                <div className="px-3 py-4 text-sm text-muted-foreground">No results</div>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -759,24 +814,89 @@ export default function WorkflowHome() {
                         <div className="space-y-3">
                           <div className="grid gap-2">
                             <div className="text-xs text-muted-foreground">Platform</div>
-                            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">{selectedPlatform}</div>
+                            <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm capitalize">{selectedPlatform}</div>
                           </div>
                           <div className="grid gap-2">
                             <label htmlFor="cred-title2" className="text-xs text-muted-foreground">Title</label>
                             <Input id="cred-title2" value={credTitle} onChange={(e) => setCredTitle(e.target.value)} placeholder={`My ${selectedPlatform} credential`} />
                           </div>
-                          <div className="grid gap-2">
-                            <label htmlFor="cred-data2" className="text-xs text-muted-foreground">Data (JSON)</label>
-                            <textarea
-                              id="cred-data2"
-                              aria-label="Credential data JSON"
-                              className="min-h-[140px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-0 focus:border-primary"
-                              value={credData}
-                              onChange={(e) => setCredData(e.target.value)}
-                              placeholder='{"apiKey":"..."}'
-                            />
-                            <div className="text-[10px] text-muted-foreground">Provide provider-specific keys, e.g., apiKey, chatId, etc.</div>
-                          </div>
+                          
+                          {/* Platform-specific fields */}
+                          {selectedPlatform === "gmail" && (
+                            <>
+                              <div className="grid gap-2">
+                                <label htmlFor="gmail-email" className="text-xs text-muted-foreground">Email</label>
+                                <Input
+                                  id="gmail-email"
+                                  type="email"
+                                  value={gmailEmail}
+                                  onChange={(e) => setGmailEmail(e.target.value)}
+                                  placeholder="your.email@gmail.com"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label htmlFor="gmail-password" className="text-xs text-muted-foreground">App Password</label>
+                                <Input
+                                  id="gmail-password"
+                                  type="password"
+                                  value={gmailAppPassword}
+                                  onChange={(e) => setGmailAppPassword(e.target.value)}
+                                  placeholder="Enter Gmail app password"
+                                />
+                                <div className="text-[10px] text-muted-foreground">Generate an app password from your Google Account settings</div>
+                              </div>
+                            </>
+                          )}
+                          
+                          {selectedPlatform === "llm" && (
+                            <>
+                              <div className="grid gap-2">
+                                <label htmlFor="llm-api-key" className="text-xs text-muted-foreground">API Key</label>
+                                <Input
+                                  id="llm-api-key"
+                                  type="password"
+                                  value={llmApiKey}
+                                  onChange={(e) => setLlmApiKey(e.target.value)}
+                                  placeholder="Enter LLM API key"
+                                />
+                              </div>
+                              <div className="grid gap-2">
+                                <label htmlFor="llm-model" className="text-xs text-muted-foreground">Model (Optional)</label>
+                                <Input
+                                  id="llm-model"
+                                  value={llmModel}
+                                  onChange={(e) => setLlmModel(e.target.value)}
+                                  placeholder="e.g., gemini-pro"
+                                />
+                              </div>
+                            </>
+                          )}
+                          
+                          {selectedPlatform === "telegram" && (
+                            <>
+                              <div className="grid gap-2">
+                                <label htmlFor="telegram-bot-token" className="text-xs text-muted-foreground">Bot Token</label>
+                                <Input
+                                  id="telegram-bot-token"
+                                  type="password"
+                                  value={telegramBotToken}
+                                  onChange={(e) => setTelegramBotToken(e.target.value)}
+                                  placeholder="Enter Telegram bot token"
+                                />
+                                <div className="text-[10px] text-muted-foreground">Get your bot token from @BotFather on Telegram</div>
+                              </div>
+                              <div className="grid gap-2">
+                                <label htmlFor="telegram-chat-id" className="text-xs text-muted-foreground">Chat ID (Optional)</label>
+                                <Input
+                                  id="telegram-chat-id"
+                                  value={telegramChatId}
+                                  onChange={(e) => setTelegramChatId(e.target.value)}
+                                  placeholder="Enter chat ID if needed"
+                                />
+                              </div>
+                            </>
+                          )}
+                          
                           <div className="pt-2">
                             <Button aria-label="Create credential" className="w-full" disabled={credSaving || !credTitle.trim()} onClick={handleSaveCredential}>
                               {credSaving ? "Saving..." : "Create credential"}
@@ -848,19 +968,85 @@ export default function WorkflowHome() {
                         <Input id="edit-title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" />
                       </div>
                       <div className="grid gap-2">
-                        <label htmlFor="edit-platform" className="text-xs text-muted-foreground">Platform</label>
-                        <Input id="edit-platform" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} placeholder="Platform" />
+                        <div className="text-xs text-muted-foreground">Platform</div>
+                        <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm capitalize">{editPlatform}</div>
                       </div>
-                      <div className="grid gap-2">
-                        <label htmlFor="edit-data" className="text-xs text-muted-foreground">Data (JSON)</label>
-                        <textarea
-                          id="edit-data"
-                          aria-label="Credential data JSON"
-                          className="min-h-[140px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-0 focus:border-primary"
-                          value={editData}
-                          onChange={(e) => setEditData(e.target.value)}
-                        />
-                      </div>
+                      
+                      {/* Platform-specific fields for editing */}
+                      {editPlatform === "gmail" && (
+                        <>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-gmail-email" className="text-xs text-muted-foreground">Email</label>
+                            <Input
+                              id="edit-gmail-email"
+                              type="email"
+                              value={editGmailEmail}
+                              onChange={(e) => setEditGmailEmail(e.target.value)}
+                              placeholder="your.email@gmail.com"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-gmail-password" className="text-xs text-muted-foreground">App Password</label>
+                            <Input
+                              id="edit-gmail-password"
+                              type="password"
+                              value={editGmailAppPassword}
+                              onChange={(e) => setEditGmailAppPassword(e.target.value)}
+                              placeholder="Enter Gmail app password"
+                            />
+                            <div className="text-[10px] text-muted-foreground">Re-enter your app password to update</div>
+                          </div>
+                        </>
+                      )}
+                      
+                      {editPlatform === "llm" && (
+                        <>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-llm-api-key" className="text-xs text-muted-foreground">API Key</label>
+                            <Input
+                              id="edit-llm-api-key"
+                              type="password"
+                              value={editLlmApiKey}
+                              onChange={(e) => setEditLlmApiKey(e.target.value)}
+                              placeholder="Enter LLM API key"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-llm-model" className="text-xs text-muted-foreground">Model (Optional)</label>
+                            <Input
+                              id="edit-llm-model"
+                              value={editLlmModel}
+                              onChange={(e) => setEditLlmModel(e.target.value)}
+                              placeholder="e.g., gemini-pro"
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {editPlatform === "telegram" && (
+                        <>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-telegram-bot-token" className="text-xs text-muted-foreground">Bot Token</label>
+                            <Input
+                              id="edit-telegram-bot-token"
+                              type="password"
+                              value={editTelegramBotToken}
+                              onChange={(e) => setEditTelegramBotToken(e.target.value)}
+                              placeholder="Enter Telegram bot token"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label htmlFor="edit-telegram-chat-id" className="text-xs text-muted-foreground">Chat ID (Optional)</label>
+                            <Input
+                              id="edit-telegram-chat-id"
+                              value={editTelegramChatId}
+                              onChange={(e) => setEditTelegramChatId(e.target.value)}
+                              placeholder="Enter chat ID if needed"
+                            />
+                          </div>
+                        </>
+                      )}
+                      
                       <div className="pt-2">
                         <Button aria-label="Save changes" className="w-full" disabled={editSaving} onClick={handleSaveCredentialEdit}>
                           {editSaving ? "Saving…" : "Save changes"}
@@ -879,73 +1065,9 @@ export default function WorkflowHome() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">Executions</div>
-          </div>
-
-          <div className="rounded-lg border border-border bg-card p-4 text-card-foreground">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <label htmlFor="exec-workflow" className="text-xs text-muted-foreground">Workflow</label>
-                <select
-                  id="exec-workflow"
-                  aria-label="Select workflow to run"
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none ring-0 focus:border-primary"
-                  value={runWorkflowId}
-                  onChange={(e) => setRunWorkflowId(e.target.value ? Number(e.target.value) : "")}
-                >
-                  <option value="" disabled>Select workflow…</option>
-                  {workflows.map((w) => (
-                    <option key={w.id} value={w.id}>{w.title || w.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex items-end">
-                <Button aria-label="Run workflow" className="w-full" disabled={startingExec || !runWorkflowId} onClick={handleStartExecution}>
-                  {startingExec ? "Starting…" : "Run workflow"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <label htmlFor="exec-node" className="text-xs text-muted-foreground">Node ID</label>
-                <Input
-                  id="exec-node"
-                  aria-label="Enter node id"
-                  placeholder="e.g. 12"
-                  value={runNodeId}
-                  onChange={(e) => setRunNodeId(e.target.value ? Number(e.target.value) : "")}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button aria-label="Run node" variant="outline" className="w-full" disabled={startingNodeExec || !runWorkflowId || !runNodeId} onClick={handleStartNodeExecution}>
-                  {startingNodeExec ? "Starting…" : "Run node"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center justify-end gap-2">
-              <Button aria-label="Refresh executions" variant="outline" size="sm" onClick={handleRefreshExecutions} disabled={execsLoading}>{execsLoading ? "Refreshing…" : "Refresh"}</Button>
-            </div>
-
-            {lastExecutionId ? (
-              <div className="mt-4 rounded-md border border-border bg-muted/20 p-3 text-sm">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">Execution ID</span>
-                    <span className="font-mono text-xs">{lastExecutionId}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Status:</span>
-                    <span className="rounded-full border border-border px-2 py-0.5 text-xs">
-                      {lastExecutionStatus || "queued"}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <Button aria-label="Poll status" variant="outline" size="sm" onClick={() => void handlePollStatus()} disabled={polling}>Check status</Button>
-                </div>
-              </div>
-            ) : null}
+            <Button aria-label="Refresh executions" variant="outline" size="sm" onClick={handleRefreshExecutions} disabled={execsLoading}>
+              {execsLoading ? "Refreshing…" : "Refresh"}
+            </Button>
           </div>
 
           <div className="overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
@@ -961,12 +1083,12 @@ export default function WorkflowHome() {
                 <div className="rounded-lg border border-dashed border-border p-10 text-center">
                   <div className="mb-3 text-3xl">🧪</div>
                   <h2 className="text-lg font-medium">No executions yet</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">Run or refresh to see execution history here</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Execution history will appear here</p>
                 </div>
               </div>
             ) : (
               execs.map((ex) => (
-                <div key={ex.execution_id} className="grid grid-cols-12 items-center px-4 py-3 text-sm">
+                <div key={ex.execution_id} className="grid grid-cols-12 items-center px-4 py-3 text-sm border-b border-border last:border-b-0">
                   <div className="col-span-5 truncate">{ex.workflow_id ?? "-"}</div>
                   <div className="col-span-2">
                     <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs">

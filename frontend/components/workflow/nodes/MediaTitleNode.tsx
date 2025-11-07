@@ -1,9 +1,9 @@
 "use client"
 import * as React from "react";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Handle, Position } from "@xyflow/react";
-import { Trash2, Plus, Loader2, CheckCircle, XCircle, Play } from "lucide-react";
+import { Trash2, Plus, Loader2, CheckCircle, XCircle, Play, Brain, Mail, MessageSquare, Webhook, Zap } from "lucide-react";
 
 export type MediaTitleNodeData = {
   imageSrc?: string;
@@ -14,6 +14,8 @@ export type MediaTitleNodeData = {
   executionStatus?: 'idle' | 'executing' | 'success' | 'error';
   executionResult?: any;
   executionError?: string;
+  service?: { key?: string; data?: any };
+  triggerType?: string;
 };
 
 export const MediaTitleNode = ({ data }: NodeProps) => {
@@ -22,11 +24,45 @@ export const MediaTitleNode = ({ data }: NodeProps) => {
     ? d.title
     : "Untitled";
 
+  const executionStatus = d?.executionStatus || 'idle';
+
   const imageSrc = (d && typeof d.imageSrc === "string" && d.imageSrc.trim().length > 0)
     ? d.imageSrc
     : undefined;
 
-  const executionStatus = d?.executionStatus || 'idle';
+  // Get icon based on service type or trigger type (prioritize icons over images)
+  const getNodeIcon = useMemo(() => {
+    // Check for trigger type first
+    if (d?.triggerType) {
+      switch (d.triggerType) {
+        case 'webhook':
+          return <Webhook className="size-4 text-foreground" />;
+        case 'manual':
+          return <Play className="size-4 text-foreground" />;
+        default:
+          return <Zap className="size-4 text-foreground" />;
+      }
+    }
+    
+    // Check for service key
+    const serviceKey = d?.service?.key;
+    if (serviceKey) {
+      switch (serviceKey) {
+        case 'ai_model':
+          return <Brain className="size-4 text-foreground" />;
+        case 'send_email':
+        case 'send_email_and_wait':
+          return <Mail className="size-4 text-foreground" />;
+        case 'telegram_message':
+          return <MessageSquare className="size-4 text-foreground" />;
+        default:
+          break;
+      }
+    }
+    
+    // Default fallback icon
+    return <Zap className="size-4 text-foreground" />;
+  }, [d?.service?.key, d?.triggerType]);
 
   const handleClick = useCallback(() => {
     if (d && typeof d.onClick === "function") {
@@ -69,7 +105,7 @@ export const MediaTitleNode = ({ data }: NodeProps) => {
   };
 
   return (
-    <div className="w-32 select-none">
+    <div className="select-none min-w-[8rem] max-w-[16rem]">
       <div
         role="button"
         tabIndex={0}
@@ -80,11 +116,14 @@ export const MediaTitleNode = ({ data }: NodeProps) => {
       >
         <div className="flex items-center gap-2">
           <div className="shrink-0 size-6 rounded-md border border-border/60 bg-muted overflow-hidden grid place-items-center relative">
-            {imageSrc ? (
+            {/* Show icon if we have service/trigger type, otherwise show image if available */}
+            {(d?.service?.key || d?.triggerType) ? (
+              getNodeIcon
+            ) : imageSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imageSrc as string} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="text-xs text-muted-foreground">Img</div>
+              getNodeIcon
             )}
             {/* Status indicator overlay */}
             {executionStatus !== 'idle' && (
@@ -93,8 +132,8 @@ export const MediaTitleNode = ({ data }: NodeProps) => {
               </div>
             )}
           </div>
-          <div className="min-w-0">
-            <p className="text-[11px] font-medium text-foreground truncate">{String(title)}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-foreground break-words whitespace-normal">{String(title)}</p>
             <p className="text-[8px] text-muted-foreground truncate">
               {executionStatus === 'executing' ? 'Executing...' : 
                executionStatus === 'success' ? 'Completed' :

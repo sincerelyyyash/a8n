@@ -7,20 +7,9 @@ import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/axios';
 import { toast } from 'sonner';
 import { useAuth } from '@/components/providers/auth-provider';
+import { getErrorMessage } from '@/lib/error-messages';
 
 type ExecutionStatus = 'idle' | 'executing' | 'success' | 'error';
-
-const extractErrorMessage = (error: any): string => {
-  const detail = error?.response?.data?.detail;
-  if (Array.isArray(detail) && detail.length > 0) {
-    const first = detail[0];
-    if (typeof first === 'string') return first;
-    if (first?.msg) return String(first.msg);
-    return JSON.stringify(first);
-  }
-  if (typeof detail === 'string') return detail;
-  return error?.message || 'Failed to execute workflow';
-};
 
 interface ExecuteButtonProps {
   workflowId?: number;
@@ -70,8 +59,7 @@ export const ExecuteButton: React.FC<ExecuteButtonProps> = ({
     } catch (error: any) {
       console.error('Execution error:', error);
       setStatus('error');
-      const errorMessage = extractErrorMessage(error);
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error));
       
       // Reset status after 3 seconds
       setTimeout(() => setStatus('idle'), 3000);
@@ -100,7 +88,7 @@ export const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           toast.error('Workflow execution failed');
           setTimeout(() => setStatus('idle'), 3000);
           return;
-        } else if (execStatus === 'running' || execStatus === 'queued') {
+        } else if (execStatus === 'processing' || execStatus === 'queued') {
           // Poll individual node executions
           await pollNodeExecutions();
           
@@ -141,7 +129,7 @@ export const ExecuteButton: React.FC<ExecuteButtonProps> = ({
           
           switch (exec.status) {
             case 'queued':
-            case 'running':
+            case 'processing':
               nodeStatus = 'executing';
               break;
             case 'completed':

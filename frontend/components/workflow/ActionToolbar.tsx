@@ -2,7 +2,7 @@
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
-import { ChevronDown, ChevronRight } from "lucide-react"
+import { ChevronDown, ChevronRight, Play, Webhook, Brain, Mail, MessageSquare, Zap } from "lucide-react"
 import { useState } from "react"
 
 type ActionToolbarProps = {
@@ -17,6 +17,33 @@ type ActionToolbarProps = {
   mode?: "trigger" | "service"
   services?: Array<{ key: string; title: string; desc: string; imageSrc?: string }>
   onSelectService?: (service: { key: string; title: string; desc: string; imageSrc?: string }) => void
+}
+
+// Helper function to get icon for trigger
+const getTriggerIcon = (key: string) => {
+  switch (key) {
+    case 'manual':
+      return <Play className="size-5 text-sidebar-foreground" />;
+    case 'webhook':
+      return <Webhook className="size-5 text-sidebar-foreground" />;
+    default:
+      return null;
+  }
+}
+
+// Helper function to get icon for service
+const getServiceIcon = (key: string) => {
+  switch (key) {
+    case 'ai_model':
+      return <Brain className="size-5 text-sidebar-foreground" />;
+    case 'send_email':
+    case 'send_email_and_wait':
+      return <Mail className="size-5 text-sidebar-foreground" />;
+    case 'telegram_message':
+      return <MessageSquare className="size-5 text-sidebar-foreground" />;
+    default:
+      return <Zap className="size-5 text-sidebar-foreground" />;
+  }
 }
 
 export default function ActionToolbar({ open, onOpenChange, onSelectTrigger, mode = "trigger", services = [], onSelectService }: ActionToolbarProps) {
@@ -83,7 +110,9 @@ export default function ActionToolbar({ open, onOpenChange, onSelectTrigger, mod
                         }
                       }}
                     >
-                      <img src={item.imageSrc} alt="" className="size-5 mt-0.5 flex-shrink-0" />
+                      <div className="mt-0.5 flex-shrink-0">
+                        {getTriggerIcon(item.key)}
+                      </div>
                       <div className="flex flex-col gap-1">
                         <span className="text-sm text-sidebar-foreground">{item.title}</span>
                         <span className="text-xs text-sidebar-foreground/70">{item.desc}</span>
@@ -122,7 +151,9 @@ export default function ActionToolbar({ open, onOpenChange, onSelectTrigger, mod
                         }
                       }}
                     >
-                      <img src={item.imageSrc} alt="" className="size-5 mt-0.5 flex-shrink-0" />
+                      <div className="mt-0.5 flex-shrink-0">
+                        {getServiceIcon(item.key)}
+                      </div>
                       <div className="flex flex-col gap-1">
                         <span className="text-sm text-sidebar-foreground">{item.title}</span>
                         <span className="text-xs text-sidebar-foreground/70">{item.desc}</span>

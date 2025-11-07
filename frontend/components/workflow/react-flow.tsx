@@ -16,6 +16,7 @@ import { apiClient } from "@/lib/axios";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useAuth } from "@/components/providers/auth-provider";
+import { getErrorMessage } from "@/lib/error-messages";
 
 const nodeTypes: NodeTypes = {
   firstNode: CreateFirstNode,
@@ -95,15 +96,33 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
   const [saving, setSaving] = useState<boolean>(false);
   const [credentials, setCredentials] = useState<Array<{ id: number; title: string; platform: string }>>([]);
   const [credDialogOpen, setCredDialogOpen] = useState<boolean>(false);
+  const [credInitialPlatform, setCredInitialPlatform] = useState<string | null>(null);
+  const [credStep, setCredStep] = useState<"select" | "form">("select");
   const [credTitle, setCredTitle] = useState<string>("");
   const [credPlatform, setCredPlatform] = useState<string>("");
-  const [credData, setCredData] = useState<string>("");
   const [creatingCred, setCreatingCred] = useState<boolean>(false);
+  
+  // Platform-specific credential fields
+  const [gmailEmail, setGmailEmail] = useState<string>("");
+  const [gmailAppPassword, setGmailAppPassword] = useState<string>("");
+  const [llmApiKey, setLlmApiKey] = useState<string>("");
+  const [llmModel, setLlmModel] = useState<string>("");
+  const [telegramBotToken, setTelegramBotToken] = useState<string>("");
+  const [telegramChatId, setTelegramChatId] = useState<string>("");
+  const [credentialQuery, setCredentialQuery] = useState<string>("");
   const [varSelect, setVarSelect] = useState<Record<string, string>>({});
   const [varPanelOpen, setVarPanelOpen] = useState<Record<string, boolean>>({});
   const [nodeExecutionStatus, setNodeExecutionStatus] = useState<Record<string, 'idle' | 'executing' | 'success' | 'error'>>({});
   const [nodeExecutionResults, setNodeExecutionResults] = useState<Record<string, any>>({});
   const [workflowInfo, setWorkflowInfo] = useState<{ name?: string; title?: string; id?: number }>({});
+
+  // Set form step when dialog opens with initial platform
+  React.useEffect(() => {
+    if (credDialogOpen && credInitialPlatform) {
+      setCredStep("form");
+      setCredPlatform(credInitialPlatform);
+    }
+  }, [credDialogOpen, credInitialPlatform]);
 
   // Function to update node execution status
   const updateNodeExecutionStatus = React.useCallback((nodeId: string, status: 'idle' | 'executing' | 'success' | 'error', result?: any, error?: string) => {
@@ -229,8 +248,7 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
       await apiClient.post('/api/v1/workflow/update', payload, { params: { user_id: user.id } });
       toast.success('Workflow saved');
     } catch (e: any) {
-      const msg = e?.response?.data?.detail || e?.message || 'Failed to save workflow';
-      toast.error(String(msg));
+      toast.error(getErrorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -494,6 +512,7 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
         defaultViewport={{ x: 0, y: 0, zoom: 0.3 }}
         minZoom={0.1}
         maxZoom={2}
+        proOptions={{ hideAttribution: true }}
           >
             <FloatingControls />
             <ExecuteButton 
@@ -717,14 +736,24 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
                               <button
                                 type="button"
                                 className="text-xs rounded-md border border-border px-2 py-2 hover:bg-muted"
-                                onClick={() => setCredDialogOpen(true)}
+                                onClick={() => {
+                                  if (platform) {
+                                    // Normalize platform name
+                                    const normalizedPlatform = platform.toLowerCase();
+                                    const finalPlatform = normalizedPlatform === "email" ? "gmail" : normalizedPlatform;
+                                    setCredInitialPlatform(finalPlatform);
+                                    setCredPlatform(finalPlatform);
+                                    setCredStep("form");
+                                  }
+                                  setCredDialogOpen(true);
+                                }}
                               >Add {platform || ''} credential</button>
                             );
                           }
                           return (
                             <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-2 py-1.5">
                               <select
-                                className="bg-transparent text-sm outline-none"
+                                className="bg-transparent text-sm text-foreground outline-none ring-0 focus:ring-0"
                                 value={selectedId}
                                 onChange={(e) => setConfigForm((s) => ({ ...s, credential_id: Number(e.target.value) }))}
                               >
@@ -735,7 +764,18 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
                               <button
                                 type="button"
                                 className="text-xs rounded-md border border-border px-2 py-1 hover:bg-muted"
-                                onClick={() => setCredDialogOpen(true)}
+                                onClick={() => {
+                                  const platform = configDialog.schemaKey ? SERVICE_PLATFORM[configDialog.schemaKey] : undefined;
+                                  if (platform) {
+                                    // Normalize platform name
+                                    const normalizedPlatform = platform.toLowerCase();
+                                    const finalPlatform = normalizedPlatform === "email" ? "gmail" : normalizedPlatform;
+                                    setCredInitialPlatform(finalPlatform);
+                                    setCredPlatform(finalPlatform);
+                                    setCredStep("form");
+                                  }
+                                  setCredDialogOpen(true);
+                                }}
                               >Add new</button>
                             </div>
                           );
@@ -755,7 +795,7 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
                           {varPanelOpen[f.key] ? (
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <select
-                                className="rounded-md border border-border bg-background px-2 py-1"
+                                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground outline-none ring-0 focus:border-primary focus:ring-1 focus:ring-ring"
                                 value={varSelect[f.key] ?? ''}
                                 onChange={(e) => setVarSelect((vs) => ({ ...vs, [f.key]: e.target.value }))}
                               >
@@ -865,7 +905,24 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
       </DialogPrimitive.Root>
 
       {/* Add Credential Dialog */}
-      <DialogPrimitive.Root open={credDialogOpen} onOpenChange={setCredDialogOpen}>
+      <DialogPrimitive.Root open={credDialogOpen} onOpenChange={(open) => {
+        setCredDialogOpen(open);
+        if (!open) {
+          setCredStep(credInitialPlatform ? "form" : "select");
+          setCredTitle("");
+          if (!credInitialPlatform) {
+            setCredPlatform("");
+          }
+          setGmailEmail("");
+          setGmailAppPassword("");
+          setLlmApiKey("");
+          setLlmModel("");
+          setTelegramBotToken("");
+          setTelegramChatId("");
+          setCredentialQuery("");
+          setCredInitialPlatform(null);
+        }
+      }}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
           <DialogPrimitive.Content className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-lg">
@@ -875,46 +932,228 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
                 <button aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:text-foreground">✕</button>
               </DialogPrimitive.Close>
             </div>
-            <div className="p-4 space-y-3">
-              <div className="grid gap-2">
-                <label className="text-xs text-muted-foreground">Title</label>
-                <Input value={credTitle} onChange={(e) => setCredTitle(e.target.value)} placeholder="My Gmail" />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-xs text-muted-foreground">Platform</label>
-                <Input value={credPlatform} onChange={(e) => setCredPlatform(e.target.value)} placeholder="gmail | telegram | llm" />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-xs text-muted-foreground">Data (JSON)</label>
-                <Input value={credData} onChange={(e) => setCredData(e.target.value)} placeholder='{"api_key":"..."}' />
-              </div>
-              <div className="pt-2">
-                <Button className="w-full" disabled={creatingCred || !user?.id || !credTitle.trim() || !credPlatform.trim()} onClick={async () => {
-                  if (!user?.id) { toast.error('Sign in required'); return; }
-                  try {
-                    setCreatingCred(true);
-                    const parsed = credData ? JSON.parse(credData) : {};
-                    await apiClient.post('/api/v1/credential/create', {
-                      
-                      title: credTitle.trim(),
-                      platform: credPlatform.trim(),
-                      data: parsed,
-                    });
-                    toast.success('Credential added');
-                    setCredDialogOpen(false);
-                    setCredTitle(''); setCredPlatform(''); setCredData('');
-                    // refresh
-                    const res = await apiClient.get('/api/v1/credential/all');
-                    const arr = Array.isArray(res.data) ? res.data : [];
-                    setCredentials(arr.map((c: any) => ({ id: c.id, title: c.title, platform: c.platform })));
-                  } catch (e: any) {
-                    const msg = e?.response?.data?.detail || e?.message || 'Failed to add credential';
-                    toast.error(String(msg));
-                  } finally {
-                    setCreatingCred(false);
-                  }
-                }}>{creatingCred ? 'Creating...' : 'Create credential'}</Button>
-              </div>
+            <div className="p-4">
+              {credStep === "select" && !credInitialPlatform ? (
+                <div>
+                  <div className="text-sm text-muted-foreground">Select an app or service to connect to</div>
+                  <div className="mt-3">
+                    <div className="relative">
+                      <Input
+                        aria-label="Search for app"
+                        placeholder="Search for app..."
+                        value={credentialQuery}
+                        onChange={(e) => setCredentialQuery(e.target.value)}
+                      />
+                      <div className="mt-2 max-h-64 overflow-auto rounded-md border border-border bg-card text-card-foreground shadow-sm">
+                        {(["Gmail", "Telegram", "Google Gemini"] as const)
+                          .filter((p) => !credentialQuery.trim() || p.toLowerCase().includes(credentialQuery.trim().toLowerCase()))
+                          .map((p) => (
+                            <button
+                              key={p}
+                              className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                              onClick={() => {
+                                const normalizedPlatform = p.toLowerCase().replace(/\s+/g, "");
+                                let finalPlatform = "";
+                                if (normalizedPlatform.includes("gmail") || normalizedPlatform === "gmail") {
+                                  finalPlatform = "gmail";
+                                } else if (normalizedPlatform.includes("telegram") || normalizedPlatform === "telegram") {
+                                  finalPlatform = "telegram";
+                                } else if (normalizedPlatform.includes("gemini") || normalizedPlatform.includes("llm") || normalizedPlatform === "llm") {
+                                  finalPlatform = "llm";
+                                }
+                                setCredPlatform(finalPlatform);
+                                setCredStep("form");
+                              }}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        {(["Gmail", "Telegram", "Google Gemini"] as const).filter((p) => !credentialQuery.trim() || p.toLowerCase().includes(credentialQuery.trim().toLowerCase())).length === 0 ? (
+                          <div className="px-3 py-4 text-sm text-muted-foreground">No results</div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid gap-2">
+                    <div className="text-xs text-muted-foreground">Platform</div>
+                    <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm capitalize">{credPlatform}</div>
+                  </div>
+                  <div className="grid gap-2">
+                    <label htmlFor="cred-title" className="text-xs text-muted-foreground">Title</label>
+                    <Input id="cred-title" value={credTitle} onChange={(e) => setCredTitle(e.target.value)} placeholder={`My ${credPlatform} credential`} />
+                  </div>
+                  
+                  {/* Platform-specific fields */}
+                  {credPlatform === "gmail" && (
+                    <>
+                      <div className="grid gap-2">
+                        <label htmlFor="gmail-email" className="text-xs text-muted-foreground">Email</label>
+                        <Input
+                          id="gmail-email"
+                          type="email"
+                          value={gmailEmail}
+                          onChange={(e) => setGmailEmail(e.target.value)}
+                          placeholder="your.email@gmail.com"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <label htmlFor="gmail-password" className="text-xs text-muted-foreground">App Password</label>
+                        <Input
+                          id="gmail-password"
+                          type="password"
+                          value={gmailAppPassword}
+                          onChange={(e) => setGmailAppPassword(e.target.value)}
+                          placeholder="Enter Gmail app password"
+                        />
+                        <div className="text-[10px] text-muted-foreground">Generate an app password from your Google Account settings</div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {credPlatform === "llm" && (
+                    <>
+                      <div className="grid gap-2">
+                        <label htmlFor="llm-api-key" className="text-xs text-muted-foreground">API Key</label>
+                        <Input
+                          id="llm-api-key"
+                          type="password"
+                          value={llmApiKey}
+                          onChange={(e) => setLlmApiKey(e.target.value)}
+                          placeholder="Enter LLM API key"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <label htmlFor="llm-model" className="text-xs text-muted-foreground">Model (Optional)</label>
+                        <Input
+                          id="llm-model"
+                          value={llmModel}
+                          onChange={(e) => setLlmModel(e.target.value)}
+                          placeholder="e.g., gemini-pro"
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  {credPlatform === "telegram" && (
+                    <>
+                      <div className="grid gap-2">
+                        <label htmlFor="telegram-bot-token" className="text-xs text-muted-foreground">Bot Token</label>
+                        <Input
+                          id="telegram-bot-token"
+                          type="password"
+                          value={telegramBotToken}
+                          onChange={(e) => setTelegramBotToken(e.target.value)}
+                          placeholder="Enter Telegram bot token"
+                        />
+                        <div className="text-[10px] text-muted-foreground">Get your bot token from @BotFather on Telegram</div>
+                      </div>
+                      <div className="grid gap-2">
+                        <label htmlFor="telegram-chat-id" className="text-xs text-muted-foreground">Chat ID (Optional)</label>
+                        <Input
+                          id="telegram-chat-id"
+                          value={telegramChatId}
+                          onChange={(e) => setTelegramChatId(e.target.value)}
+                          placeholder="Enter chat ID if needed"
+                        />
+                      </div>
+                    </>
+                  )}
+                  
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setCredStep("select");
+                        setCredPlatform("");
+                      }}
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={creatingCred || !user?.id || !credTitle.trim() || !credPlatform.trim()}
+                      onClick={async () => {
+                        if (!user?.id) {
+                          toast.error('Sign in required');
+                          return;
+                        }
+                        
+                        // Build platform-specific fields object
+                        let fields: Record<string, string> = {};
+                        if (credPlatform === "gmail") {
+                          if (!gmailEmail.trim() || !gmailAppPassword.trim()) {
+                            toast.error("Email and app password are required for Gmail");
+                            return;
+                          }
+                          fields = {
+                            email: gmailEmail.trim(),
+                            app_password: gmailAppPassword.trim(),
+                          };
+                        } else if (credPlatform === "llm") {
+                          if (!llmApiKey.trim()) {
+                            toast.error("API key is required for LLM");
+                            return;
+                          }
+                          fields = {
+                            api_key: llmApiKey.trim(),
+                            ...(llmModel.trim() ? { model: llmModel.trim() } : {}),
+                          };
+                        } else if (credPlatform === "telegram") {
+                          if (!telegramBotToken.trim()) {
+                            toast.error("Bot token is required for Telegram");
+                            return;
+                          }
+                          fields = {
+                            bot_token: telegramBotToken.trim(),
+                            ...(telegramChatId.trim() ? { chat_id: telegramChatId.trim() } : {}),
+                          };
+                        } else {
+                          toast.error("Invalid platform selected");
+                          return;
+                        }
+                        
+                        try {
+                          setCreatingCred(true);
+                          await apiClient.post('/api/v1/credential/create-platform', {
+                            title: credTitle.trim(),
+                            platform: credPlatform,
+                            fields,
+                          });
+                          toast.success('Credential added');
+                          setCredDialogOpen(false);
+                          setCredStep(credInitialPlatform ? "form" : "select");
+                          setCredTitle("");
+                          if (!credInitialPlatform) {
+                            setCredPlatform("");
+                          }
+                          setGmailEmail("");
+                          setGmailAppPassword("");
+                          setLlmApiKey("");
+                          setLlmModel("");
+                          setTelegramBotToken("");
+                          setTelegramChatId("");
+                          setCredentialQuery("");
+                          setCredInitialPlatform(null);
+                          // refresh
+                          const res = await apiClient.get('/api/v1/credential/all');
+                          const arr = Array.isArray(res.data) ? res.data : [];
+                          setCredentials(arr.map((c: any) => ({ id: c.id, title: c.title, platform: c.platform })));
+                        } catch (e: any) {
+                          toast.error(getErrorMessage(e));
+                        } finally {
+                          setCreatingCred(false);
+                        }
+                      }}
+                    >
+                      {creatingCred ? 'Creating...' : 'Create credential'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
@@ -972,8 +1211,7 @@ export default function ReactFlowComponent({ workflowId }: { workflowId?: number
                     toast.success('Workflow saved');
                     setSaveDialogOpen(false);
                   } catch (e: any) {
-                    const msg = e?.response?.data?.detail || e?.message || 'Failed to save workflow';
-                    toast.error(String(msg));
+                    toast.error(getErrorMessage(e));
                   } finally {
                     setSaving(false);
                   }
