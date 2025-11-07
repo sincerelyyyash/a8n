@@ -10,6 +10,8 @@ from ..schemas.credential_schema import (
     CredentialPublicRead,
     CredentialRead,
     CredentialUpdate,
+    PlatformCredentialCreate,
+    PlatformCredentialUpdate,
 )
 from ..models.credential_model import Credential
 
@@ -34,6 +36,37 @@ async def add_credentials(
         return {
             "message": "Credentials added successfully",
             "data": {"credential_id": new_cred.id},
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/create-platform")
+async def add_platform_credentials(
+    credential: PlatformCredentialCreate, db: AsyncSession = Depends(async_get_db), request: Request = None
+):
+   
+    try:
+
+        data_dict = credential.fields
+        
+        new_cred = Credential(
+            user_id=getattr(request.state, "user_id", None),
+            title=credential.title,
+            platform=credential.platform,
+            data=data_dict,
+        )
+        db.add(new_cred)
+        await db.commit()
+        await db.refresh(new_cred)
+
+        return {
+            "message": "Credentials added successfully",
+            "data": {
+                "credential_id": new_cred.id,
+                "title": new_cred.title,
+                "platform": new_cred.platform,
+            },
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
@@ -77,6 +110,48 @@ async def update_credential(
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
+@router.post("/update-platform")
+async def update_platform_credential(
+    credential: PlatformCredentialUpdate, db: AsyncSession = Depends(async_get_db), request: Request = None
+):
+   
+    try:
+        authed_user_id = getattr(request.state, "user_id", None)
+        result = await db.execute(
+            select(Credential).where(
+                (Credential.id == credential.id)
+                & (Credential.user_id == authed_user_id)
+            )
+        )
+        cred = result.scalar_one_or_none()
+
+        if not cred:
+            raise HTTPException(
+                status_code=400, detail="Credential not found or does not exist"
+            )
+
+        if credential.fields is not None:
+            # Fields is already a dict from the schema
+            cred.data = credential.fields
+        if credential.title is not None:
+            cred.title = credential.title
+
+        await db.commit()
+        await db.refresh(cred)
+
+        return {
+            "message": "Credential updated successfully",
+            "data": {
+                "credential_id": cred.id,
+                "title": cred.title,
+                "platform": cred.platform,
+            },
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/")
 async def get_credential(
     credential_id: int = Query(...),
@@ -84,9 +159,7 @@ async def get_credential(
     db: AsyncSession = Depends(async_get_db),
     request: Request = None,
 ):
-    """
-    Fetch a single credential by credential_id and user_id (as query params).
-    """
+   
     try:
         authed_user_id = getattr(request.state, "user_id", user_id)
         result = await db.execute(
@@ -119,9 +192,7 @@ async def get_credential(
 async def get_all_credentials(
     user_id: int = Query(None), db: AsyncSession = Depends(async_get_db), request: Request = None
 ):
-    """
-    Fetch all credentials for a given user_id.
-    """
+   
     try:
         authed_user_id = getattr(request.state, "user_id", user_id)
         results = await db.execute(
